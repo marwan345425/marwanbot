@@ -7,18 +7,15 @@ from telegram.ext import (
     MessageHandler, filters, ContextTypes
 )
 
-# إعدادات البوت
 TOKEN = "8196646590:AAEMri3y4yNtZWGdtzqH7ftBfMhYf5koxSs"
 OWNER_ID = 5193446345
 DB_PATH = "messages.db"
 
-# تفعيل سجل الأخطاء
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-# إنشاء قاعدة البيانات
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -37,8 +34,10 @@ def init_db():
     conn.commit()
     conn.close()
 
-# حفظ الرسائل
 def save_message_db(message):
+    if not message or not message.chat:
+        return
+
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
@@ -48,15 +47,25 @@ def save_message_db(message):
     date = int(message.date.timestamp())
 
     if message.text:
-        message_type = "text"; text = message.text; file_id = None
+        message_type = "text"
+        text = message.text
+        file_id = None
     elif message.photo:
-        message_type = "photo"; text = None; file_id = message.photo[-1].file_id
+        message_type = "photo"
+        text = None
+        file_id = message.photo[-1].file_id
     elif message.video:
-        message_type = "video"; text = None; file_id = message.video.file_id
+        message_type = "video"
+        text = None
+        file_id = message.video.file_id
     elif message.voice:
-        message_type = "voice"; text = None; file_id = message.voice.file_id
+        message_type = "voice"
+        text = None
+        file_id = message.voice.file_id
     else:
-        message_type = "other"; text = None; file_id = None
+        message_type = "other"
+        text = None
+        file_id = None
 
     c.execute("""
         INSERT OR REPLACE INTO messages
@@ -66,7 +75,6 @@ def save_message_db(message):
     conn.commit()
     conn.close()
 
-# استرجاع الرسالة
 def get_message_db(chat_id, message_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -98,12 +106,12 @@ async def send_saved_message(chat_id, message_id, context: ContextTypes.DEFAULT_
     else:
         await context.bot.send_message(OWNER_ID, "⚠ نوع الرسالة غير مدعوم أو لم يُحفظ.")
 
-# أوامر البوت
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🤖 البوت شغال وجاهز لاسترجاع الرسائل المحذوفة!")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    save_message_db(update.message)
+    if update.message:
+        save_message_db(update.message)
 
 async def edited_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.edited_message
@@ -117,7 +125,6 @@ async def get_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_id = int(context.args[1])
     await send_saved_message(chat_id, message_id, context)
 
-# Webhook بدل polling
 if __name__ == "__main__":
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
@@ -126,10 +133,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), handle_message))
     app.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE, edited_message))
 
-    print("✅ البوت شغال باستخدام Webhook...")
-
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=10000,
-        webhook_url="https://marwanbot.onrender.com/"
-    )
+    print("✅ البوت شغال...")
+    app.run_polling()
