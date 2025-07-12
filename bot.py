@@ -37,7 +37,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# حفظ الرسائل في قاعدة البيانات
+# حفظ الرسائل
 def save_message_db(message):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -66,7 +66,7 @@ def save_message_db(message):
     conn.commit()
     conn.close()
 
-# استرجاع الرسالة من قاعدة البيانات
+# استرجاع الرسالة
 def get_message_db(chat_id, message_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -75,7 +75,6 @@ def get_message_db(chat_id, message_id):
     conn.close()
     return row
 
-# إرسال الرسالة المحفوظة للمالك
 async def send_saved_message(chat_id, message_id, context: ContextTypes.DEFAULT_TYPE):
     msg_data = get_message_db(chat_id, message_id)
     if not msg_data:
@@ -118,7 +117,7 @@ async def get_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_id = int(context.args[1])
     await send_saved_message(chat_id, message_id, context)
 
-# تشغيل البوت
+# Webhook بدل polling
 if __name__ == "__main__":
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
@@ -127,5 +126,10 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), handle_message))
     app.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE, edited_message))
 
-    print("✅ البوت شغال...")
-    app.run_polling()
+    print("✅ البوت شغال باستخدام Webhook...")
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=10000,
+        webhook_url="https://marwanbot.onrender.com/"
+    )
