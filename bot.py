@@ -119,7 +119,7 @@ async def get_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_saved_message(chat_id, message_id, context)
 
 # تشغيل البوت
-if _name_ == "_main_":
+if __name__ == "__main__":
     init_db()
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
