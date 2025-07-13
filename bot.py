@@ -20,8 +20,10 @@ def init_db():
         CREATE TABLE IF NOT EXISTS messages (
             message_id INTEGER,
             chat_id INTEGER,
+            username TEXT,
             content TEXT,
             message_type TEXT,
+            timestamp TEXT,
             UNIQUE(message_id, chat_id)
         )
     ''')
@@ -49,10 +51,13 @@ def save_message(message):
         content = "[نوع غير مدعوم]"
         msg_type = "other"
 
+    username = message.from_user.username or "(لا يوجد)"
+    timestamp = message.date.strftime("%Y-%m-%d %H:%M:%S")
+
     c.execute("""
-        INSERT OR REPLACE INTO messages (message_id, chat_id, content, message_type)
-        VALUES (?, ?, ?, ?)
-    """, (message.message_id, message.chat.id, content, msg_type))
+        INSERT OR REPLACE INTO messages (message_id, chat_id, username, content, message_type, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (message.message_id, message.chat.id, username, content, msg_type, timestamp))
 
     conn.commit()
     conn.close()
@@ -85,12 +90,31 @@ async def handle_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ البوت شغال ويقوم بحفظ الرسائل الخاصة.")
 
-# تشغيل البوت بـ webhook
+# أمر /get_all لاسترجاع جميع الرسائل المحفوظة
+async def get_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT username, content, message_type, timestamp FROM messages ORDER BY rowid DESC")
+    rows = c.fetchall()
+    conn.close()
+
+    if not rows:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="لا توجد رسائل محفوظة.")
+        return
+
+    response = "🗂 جميع الرسائل المحفوظة:\n"
+    for idx, (username, content, msg_type, timestamp) in enumerate(rows, 1):
+        response += f"\n{idx}. 👤 المستخدم: @{username}\n📅 الوقت: {timestamp}\n📨 النوع: {msg_type}\n📝 المحتوى: {content}\n"
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=response, parse_mode="Markdown")
+
+# تشغيل البوت باستخدام Webhook
 if __name__ == "__main__":
     init_db()
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("get_all", get_all))
     app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), handle_message))
     app.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE, handle_edit))
 
